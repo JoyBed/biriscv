@@ -22,18 +22,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //-----------------------------------------------------------------
-//History
-//-----------------------------------------------------------------
-//2020/9/10 Altus: Change _i_ interface to Master, _t_ interafce to Slave
-//2020/9/10 Altus: Expand AXI lite to AXI
-//
-//
+//! biRISC-V CPU TCM top
+//! 32-bit Superscalar RISC-V CPU
+//! Forked from  http://github.com/ultraembedded/biriscv
+//! Modifications copyright (C) 2020 altusemi
+//!
+//! ***History***
+//! altusemi @ Oct 3 10:00:16 2020 -0400  Add bootrom .vh file, fix bitwidth mismatches, set AXI to 32 bits
+//! altusemi @ Sat Oct 3 09:58:20 2020 -0400 fix a bug in CSR - if read and arite address to mcycle are the same, mcycle is reset when reading. Leave MTIME only for write
+//! altusemi @ Sun Sep 20 22:11:35 2020 -0400 sample tcm memeory read address for ROM/RAM muxing
+//! altusemi @ Tue Sep 15 19:42:11 2020 -0400 Add ROM. Change base address to 0x00000000. Change i,d axi interafces to mst/slv.
+//! altusemi @ Tue Sep 15 19:20:29 2020 -0400 enable write to MTIME
+//! 2020/9/10 Altus: Change _i_ interface to Master, _t_ interafce to Slave
+//! 2020/9/10 Altus: Expand AXI lite to AXI
+//! 2020/9/10 Altus: Forked from  http://github.com/ultraembedded/biriscv
+
 module riscv_tcm_top
 //-----------------------------------------------------------------
 // Params
 //-----------------------------------------------------------------
 #(
-     parameter BOOT_VECTOR      = 32'h0000_0000
+     parameter BOOTROM_FILE     = "bootrom.vh" //!Bootrom file
+    ,parameter BOOT_VECTOR      = 32'h0000_0000
     ,parameter CORE_ID          = 0
     ,parameter TCM_MEM_BASE     = 32'h0000_0000
     ,parameter TCM_ROM_SIZE     = 16'h4000       //Altus: Add ROM
@@ -48,7 +58,7 @@ module riscv_tcm_top
     ,parameter SUPPORT_REGFILE_XILINX = 0
     ,parameter EXTRA_DECODE_STAGE = 0
     ,parameter MEM_CACHE_ADDR_MIN = 32'h80000000
-    ,parameter MEM_CACHE_ADDR_MAX = 32'h8fffffff
+    ,parameter MEM_CACHE_ADDR_MAX = 32'hffffffff
     ,parameter NUM_BTB_ENTRIES  = 32
     ,parameter NUM_BTB_ENTRIES_W = 5
     ,parameter NUM_BHT_ENTRIES  = 512
@@ -84,8 +94,8 @@ module riscv_tcm_top
     ,output          riscv_mst_awvalid
     ,input           riscv_mst_awready
 
-    ,output [ 31:0]  riscv_mst_wdata
-    ,output [  3:0]  riscv_mst_wstrb
+    ,output [ 63:0]  riscv_mst_wdata
+    ,output [  7:0]  riscv_mst_wstrb
     ,output          riscv_mst_wlast   //Altus expand to AXI
     //,output          riscv_mst_wuser   //Altus expand to AXI - not used
     ,output          riscv_mst_wvalid
@@ -109,13 +119,13 @@ module riscv_tcm_top
     ,output          riscv_mst_arvalid
     ,input           riscv_mst_arready
     
-    ,input  [ 31:0]  riscv_mst_rdata
+    ,input  [ 63:0]  riscv_mst_rdata
     ,input  [  1:0]  riscv_mst_rresp
     ,input           riscv_mst_rvalid
     ,output          riscv_mst_rready
        
     // AXI Slave
-    ,input  [  3:0]  riscv_slv_awid
+    ,input  [  4:0]  riscv_slv_awid
     ,input  [ 31:0]  riscv_slv_awaddr
     ,input  [  7:0]  riscv_slv_awlen
     ,input  [  2:0]  riscv_slv_awsize  //Altus expand to AXI
@@ -129,8 +139,8 @@ module riscv_tcm_top
     ,input           riscv_slv_awvalid
     ,output          riscv_slv_awready
     
-    ,input  [ 31:0]  riscv_slv_wdata
-    ,input  [  3:0]  riscv_slv_wstrb
+    ,input  [ 63:0]  riscv_slv_wdata
+    ,input  [  7:0]  riscv_slv_wstrb
     ,input           riscv_slv_wlast
     //,input           riscv_slv_wuser   //Altus expand to AXI - not used
     ,input           riscv_slv_wvalid
@@ -139,9 +149,9 @@ module riscv_tcm_top
     ,output [  1:0]  riscv_slv_bresp
     ,output          riscv_slv_bvalid
     ,input           riscv_slv_bready
-    ,output [  3:0]  riscv_slv_bid     //Altus: Is it used?
+    ,output [  4:0]  riscv_slv_bid     //Altus: Is it used?
  
-    ,input  [  3:0]  riscv_slv_arid
+    ,input  [  4:0]  riscv_slv_arid
     ,input  [ 31:0]  riscv_slv_araddr
     ,input  [  7:0]  riscv_slv_arlen
     ,input  [  2:0]  riscv_slv_arsize   //Altus expand to AXI
@@ -155,15 +165,15 @@ module riscv_tcm_top
     ,input           riscv_slv_arvalid
     ,output          riscv_slv_arready
     
-    ,output [ 31:0]  riscv_slv_rdata
+    ,output [ 63:0]  riscv_slv_rdata
     ,output [  1:0]  riscv_slv_rresp
     ,output          riscv_slv_rvalid
     ,input           riscv_slv_rready
-    ,output [  3:0]  riscv_slv_rid      //Altus: Is it used?
+    ,output [  4:0]  riscv_slv_rid      //Altus: Is it used?
     ,output          riscv_slv_rlast    //Altus: Is it used?
 );
 
-wire  [ 31:0]  ifetch_pc_w;
+(* mark_debug = "true" *)wire  [ 31:0]  ifetch_pc_w; //Altus: Add to Vivado debugger
 wire  [ 31:0]  dport_tcm_data_rd_w;
 wire           dport_tcm_cacheable_w;
 wire           dport_flush_w;
@@ -217,7 +227,7 @@ wire           dport_tcm_error_w;
 wire           dport_accept_w;
 
 //Altus expand to AXI - _i_ I/F
-assign   riscv_mst_awid     =4'b1000;//Altus expand to AXI
+assign   riscv_mst_awid     =5'b1000;//Altus expand to AXI
 assign   riscv_mst_awlen    ='b0;//Altus expand to AXI
 assign   riscv_mst_awsize   ='b0;//Altus expand to AXI
 assign   riscv_mst_awburst  ='b0;//Altus expand to AXI
@@ -358,6 +368,7 @@ u_dmux
 
 tcm_mem
 #(
+     .BOOTROM_FILE(BOOTROM_FILE),
      .TCM_RAM_SIZE(TCM_RAM_SIZE),
      .TCM_ROM_SIZE(TCM_ROM_SIZE)
 )
@@ -381,17 +392,17 @@ u_tcm
     ,.mem_d_flush_i(dport_tcm_flush_w)
     ,.axi_awvalid_i(riscv_slv_awvalid)
     ,.axi_awaddr_i(riscv_slv_awaddr)
-    ,.axi_awid_i(riscv_slv_awid)
+    ,.axi_awid_i(riscv_slv_awid[3:0])
     ,.axi_awlen_i(riscv_slv_awlen)
     ,.axi_awburst_i(riscv_slv_awburst)
     ,.axi_wvalid_i(riscv_slv_wvalid)
-    ,.axi_wdata_i(riscv_slv_wdata)
-    ,.axi_wstrb_i(riscv_slv_wstrb)
+    ,.axi_wdata_i(riscv_slv_wdata[31:0])
+    ,.axi_wstrb_i(riscv_slv_wstrb[3:0])
     ,.axi_wlast_i(riscv_slv_wlast)
     ,.axi_bready_i(riscv_slv_bready)
     ,.axi_arvalid_i(riscv_slv_arvalid)
     ,.axi_araddr_i(riscv_slv_araddr)
-    ,.axi_arid_i(riscv_slv_arid)
+    ,.axi_arid_i(riscv_slv_arid[3:0])
     ,.axi_arlen_i(riscv_slv_arlen)
     ,.axi_arburst_i(riscv_slv_arburst)
     ,.axi_rready_i(riscv_slv_rready)
@@ -410,14 +421,16 @@ u_tcm
     ,.axi_wready_o(riscv_slv_wready)
     ,.axi_bvalid_o(riscv_slv_bvalid)
     ,.axi_bresp_o(riscv_slv_bresp)
-    ,.axi_bid_o(riscv_slv_bid)
+    ,.axi_bid_o(riscv_slv_bid[3:0])
     ,.axi_arready_o(riscv_slv_arready)
     ,.axi_rvalid_o(riscv_slv_rvalid)
-    ,.axi_rdata_o(riscv_slv_rdata)
+    ,.axi_rdata_o(riscv_slv_rdata[31:0])
     ,.axi_rresp_o(riscv_slv_rresp)
-    ,.axi_rid_o(riscv_slv_rid)
+    ,.axi_rid_o(riscv_slv_rid[3:0])
     ,.axi_rlast_o(riscv_slv_rlast)
 );
+assign riscv_slv_bid[4]=1'b0;
+assign riscv_slv_rid[4]=1'b0;
 
 
 dport_axi
@@ -432,7 +445,7 @@ u_axi
     ,.mem_wr_i(dport_axi_wr_w)
     ,.mem_cacheable_i(dport_axi_cacheable_w)
     ,.mem_req_tag_i(dport_axi_req_tag_w)
-    ,.mem_invalidate_i(dport_riscv_mstnvalidate_w)
+    ,.mem_invalidate_i(dport_axi_invalidate_w)
     ,.mem_writeback_i(dport_axi_writeback_w)
     ,.mem_flush_i(dport_axi_flush_w)
     ,.axi_awready_i(riscv_mst_awready)
@@ -441,7 +454,7 @@ u_axi
     ,.axi_bresp_i(riscv_mst_bresp)
     ,.axi_arready_i(riscv_mst_arready)
     ,.axi_rvalid_i(riscv_mst_rvalid)
-    ,.axi_rdata_i(riscv_mst_rdata)
+    ,.axi_rdata_i(riscv_mst_rdata[31:0])
     ,.axi_rresp_i(riscv_mst_rresp)
 
     // Outputs
@@ -453,13 +466,17 @@ u_axi
     ,.axi_awvalid_o(riscv_mst_awvalid)
     ,.axi_awaddr_o(riscv_mst_awaddr)
     ,.axi_wvalid_o(riscv_mst_wvalid)
-    ,.axi_wdata_o(riscv_mst_wdata)
-    ,.axi_wstrb_o(riscv_mst_wstrb)
+    ,.axi_wdata_o(riscv_mst_wdata[31:0])
+    ,.axi_wstrb_o(riscv_mst_wstrb[3:0])
     ,.axi_bready_o(riscv_mst_bready)
     ,.axi_arvalid_o(riscv_mst_arvalid)
     ,.axi_araddr_o(riscv_mst_araddr)
     ,.axi_rready_o(riscv_mst_rready)
 );
+
+assign riscv_mst_wdata[63:32] =32'b0;//biriscv AXI data bus is 32 bits wide
+assign riscv_slv_rdata[63:32] =32'b0;//biriscv AXI data bus is 32 bits wide
+assign riscv_mst_wstrb[7:4]=4'b0;//biriscv AXI data bus is 32 bits wide
 
 
 

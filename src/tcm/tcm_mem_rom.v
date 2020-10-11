@@ -22,6 +22,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //-----------------------------------------------------------------
+//! Modifications copyright (C) 2020 altusemi
+//!
+//! ***History***
+//! altusemi @ Tue Sep 15 19:42:11 2020 -0400 Add ROM. Change base address to 0x00000000. Change i,d axi interafces to mst/slv.
+//! 2020/9/10 Altus: Forked from  http://github.com/ultraembedded/biriscv
 
 module tcm_mem_rom#(
      parameter ROM_SIZE         = 'd16384
@@ -50,9 +55,14 @@ module tcm_mem_rom#(
 reg [63:0]   rom [(ROM_SIZE/8) -1:0] /*verilator public*/; 
 /* verilator lint_on MULTIDRIVEN */
 
-reg [63:0] rom_read0_q;
+reg [63:0] rom_read0_q/* synthesis syn_romstyle = "select_rom" */;
 reg [63:0] rom_read1_q;
-
+integer i;
+initial 
+begin
+	for (i=0;i<ROM_SIZE/8;i=i+1) rom[i]='b0;
+	`include "bootrom.vh"
+end
 
 // Synchronous write
 always @ (posedge clk0_i)

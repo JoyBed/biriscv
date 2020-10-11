@@ -21,6 +21,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//! Modifications copyright (C) 2020 altusemi
+//!
+//! ***History***
+//! altusemi @ Tue Sep 20 19:20:29 2020 -0400 fix verilator lint error
 //-----------------------------------------------------------------
 
 module biriscv_npc
@@ -206,7 +210,11 @@ if (rst_i)
 begin
     for (i4 = 0; i4 < NUM_BHT_ENTRIES; i4 = i4 + 1)
     begin
-        bht_sat_q[i4] /*<*/= 2'd3;
+`ifdef VERILATOR
+	bht_sat_q[i4] = 2'd3;
+`else
+	bht_sat_q[i4] <= 2'd3;
+`endif
     end
 end
 else if (branch_is_taken_i && bht_sat_q[bht_wr_entry_w] < 2'd3)
