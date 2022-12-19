@@ -21,6 +21,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//! Modifications copyright (C) 2020 altusemi
+//!
+//! ***History***
+//! altusemi @ Tue Sep 15 19:42:11 2020 -0400 Add ROM. Change base address to 0x00000000. Change i,d axi interafces to mst/slv.
+//! 2020/9/10 Altus: Forked from  http://github.com/ultraembedded/biriscv
 //-----------------------------------------------------------------
 
 module dport_mux
@@ -28,7 +33,10 @@ module dport_mux
 // Params
 //-----------------------------------------------------------------
 #(
-     parameter TCM_MEM_BASE     = 0
+     parameter TCM_MEM_BASE     = 0,
+     parameter TCM_ROM_SIZE     = 'd16384,
+     parameter TCM_RAM_SIZE     = 'd49152
+
 )
 //-----------------------------------------------------------------
 // Ports
@@ -91,7 +99,7 @@ module dport_mux
 wire hold_w;
 
 /* verilator lint_off UNSIGNED */
-wire tcm_access_w = (mem_addr_i >= TCM_MEM_BASE && mem_addr_i < (TCM_MEM_BASE + 32'd65536));
+wire tcm_access_w = (mem_addr_i >= TCM_MEM_BASE && mem_addr_i < (TCM_MEM_BASE + TCM_ROM_SIZE+TCM_RAM_SIZE/*32'd65536*/));
 /* verilator lint_on UNSIGNED */
 
 reg       tcm_access_q;

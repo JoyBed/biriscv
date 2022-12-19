@@ -21,6 +21,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//! Modifications copyright (C) 2020 altusemi
+//!
+//!
+//! ***History***
+//! altusemi @ Tue Sep 15 19:20:29 2020 -0400 enable write to MTIME
+//! 2020/9/10 Altus: Expand AXI lite to AXI
 //-----------------------------------------------------------------
 module biriscv_csr_regfile
 //-----------------------------------------------------------------
@@ -427,6 +433,8 @@ begin
         `CSR_MIE:      csr_mie_r      = csr_wdata_i & `CSR_MIE_MASK;
         `CSR_MEDELEG:  csr_medeleg_r  = csr_wdata_i & `CSR_MEDELEG_MASK;
         `CSR_MIDELEG:  csr_mideleg_r  = csr_wdata_i & `CSR_MIDELEG_MASK;
+        `CSR_MTIME:    csr_mcycle_r   = csr_wdata_i & `CSR_MTIME_MASK;
+
         // Non-std behaviour
         `CSR_MTIMECMP:
         begin

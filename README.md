@@ -1,3 +1,13 @@
+Forked from [http://github.com/ultraembedded/biriscv](http://github.com/ultraembedded/biriscv)
+
+## Following changes were applied:
+
+* Add bootrom .vh file, fix bitwidth mismatches, set AXI to 32 bits
+* Add ROM. Change base address to 0x00000000. Change i,d axi interafces to mst/slv.
+* enable write to MTIME
+* Change _i_ interface to Master, _t_ interafce to Slave
+* Expand AXI lite to AXI
+
 # biRISC-V - 32-bit dual issue RISC-V CPU
 
 Github: [http://github.com/ultraembedded/biriscv](http://github.com/ultraembedded/biriscv)
